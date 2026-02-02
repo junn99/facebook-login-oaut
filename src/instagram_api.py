@@ -180,3 +180,92 @@ class InstagramAPI:
             "fields": "id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography"
         }
         return self._request_with_retry(self.instagram_id, params)
+
+    def get_media_list(self, limit: int = 25) -> list[dict]:
+        """
+        Fetch recent media (posts, reels, carousels).
+
+        Returns:
+            List of media objects with id, caption, media_type, timestamp, etc.
+        """
+        params = {
+            "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+            "limit": limit,
+        }
+        data = self._request_with_retry(f"{self.instagram_id}/media", params)
+        return data.get("data", [])
+
+    def get_media_insights(self, media_id: str, media_type: str) -> dict:
+        """
+        Fetch insights for a specific media item.
+
+        Args:
+            media_id: The media ID
+            media_type: 'IMAGE', 'VIDEO', 'CAROUSEL_ALBUM', or 'REELS'
+
+        Returns:
+            Dictionary of metric_name -> value
+        """
+        # Different metrics available for different media types
+        if media_type == "REELS":
+            metrics = ["plays", "reach", "saved", "shares", "total_interactions", "likes", "comments"]
+        elif media_type == "VIDEO":
+            metrics = ["impressions", "reach", "saved", "video_views", "likes", "comments", "shares"]
+        else:  # IMAGE, CAROUSEL_ALBUM
+            metrics = ["impressions", "reach", "saved", "likes", "comments", "shares"]
+
+        params = {
+            "metric": ",".join(metrics),
+        }
+
+        try:
+            data = self._request_with_retry(f"{media_id}/insights", params)
+            results = {}
+            for item in data.get("data", []):
+                name = item.get("name")
+                values = item.get("values", [{}])
+                value = values[0].get("value", 0) if values else 0
+                results[name] = value
+            return results
+        except InstagramAPIError:
+            return {}
+
+    def get_stories(self) -> list[dict]:
+        """
+        Fetch current active stories (available for 24 hours only).
+
+        Returns:
+            List of story objects
+        """
+        params = {
+            "fields": "id,media_type,media_url,timestamp,permalink",
+        }
+        try:
+            data = self._request_with_retry(f"{self.instagram_id}/stories", params)
+            return data.get("data", [])
+        except InstagramAPIError:
+            return []
+
+    def get_story_insights(self, story_id: str) -> dict:
+        """
+        Fetch insights for a specific story.
+
+        Returns:
+            Dictionary of metric_name -> value
+        """
+        metrics = ["impressions", "reach", "replies", "exits", "taps_forward", "taps_back"]
+        params = {
+            "metric": ",".join(metrics),
+        }
+
+        try:
+            data = self._request_with_retry(f"{story_id}/insights", params)
+            results = {}
+            for item in data.get("data", []):
+                name = item.get("name")
+                values = item.get("values", [{}])
+                value = values[0].get("value", 0) if values else 0
+                results[name] = value
+            return results
+        except InstagramAPIError:
+            return {}
