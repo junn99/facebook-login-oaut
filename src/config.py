@@ -12,8 +12,10 @@ class Config:
     FB_APP_ID: str = os.getenv("FB_APP_ID", "")
     FB_APP_SECRET: str = os.getenv("FB_APP_SECRET", "")
     OAUTH_REDIRECT_URI: str = os.getenv("OAUTH_REDIRECT_URI", "")
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
-    DATABASE_AUTH_TOKEN: str = os.getenv("DATABASE_AUTH_TOKEN", "")
+
+    # Supabase
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
 
     # Facebook Graph API
     GRAPH_API_VERSION: str = "v21.0"
@@ -26,7 +28,7 @@ class Config:
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of missing keys."""
-        required = ["FB_APP_ID", "FB_APP_SECRET", "OAUTH_REDIRECT_URI", "DATABASE_URL", "DATABASE_AUTH_TOKEN"]
+        required = ["FB_APP_ID", "FB_APP_SECRET", "OAUTH_REDIRECT_URI", "SUPABASE_URL", "SUPABASE_KEY"]
         missing = [key for key in required if not getattr(cls, key)]
         return missing
 
