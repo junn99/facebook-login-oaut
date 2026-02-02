@@ -1,0 +1,30 @@
+[project]
+name = "urlinsta"
+version = "1.0.0"
+description = "Instagram Insights Collection System with Streamlit"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.31.0",
+    "libsql-experimental>=0.0.47",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+    "plotly>=5.18.0",
+    "pandas>=2.1.0",
+    "tenacity>=8.2.0",
+    "apscheduler>=3.10.0",
+]
+
+[project.scripts]
+collect-insights = "jobs.collect_insights:run_collection"
+refresh-tokens = "jobs.refresh_tokens:run_token_refresh"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
