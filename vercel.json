@@ -5,19 +5,5 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "dist/index.js" }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/refresh-tokens",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/collect-insights",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron/collect-audience",
-      "schedule": "0 0 * * *"
-    }
   ]
 }
