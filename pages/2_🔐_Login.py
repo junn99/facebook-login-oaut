@@ -9,7 +9,7 @@ from src.config import config
 st.set_page_config(page_title="Login", page_icon="🔐", layout="centered")
 init_db()
 
-st.title("🔐 Instagram Login")
+st.title("🔐 인스타그램 로그인")
 
 # Check for OAuth callback
 params = st.query_params
@@ -25,10 +25,10 @@ if "code" in params and "state" in params:
     # For Streamlit Cloud: session may reset after redirect, so we allow the flow
     # if code is present (Facebook validated the request)
     if not state_valid:
-        st.warning("State validation skipped. Proceeding with login...")
+        st.warning("보안 검증을 건너뜁니다. 로그인을 진행합니다...")
         # Don't block - Facebook already validated the user
     else:
-        with st.spinner("Completing login..."):
+        with st.spinner("로그인 처리 중..."):
             try:
                 result = complete_oauth_flow(code)
 
@@ -60,19 +60,19 @@ if "code" in params and "state" in params:
                     st.session_state.user_id = user.id
                     st.session_state.instagram_username = user.instagram_username
 
-                    st.success(f"✅ Successfully logged in as @{ig_account.username}!")
+                    st.success(f"✅ @{ig_account.username} 로그인 성공!")
 
                     # Show account info
-                    st.markdown("### Account Info")
+                    st.markdown("### 계정 정보")
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.write(f"**Username:** @{ig_account.username}")
-                        st.write(f"**Name:** {ig_account.name or 'N/A'}")
+                        st.write(f"**사용자명:** @{ig_account.username}")
+                        st.write(f"**이름:** {ig_account.name or '없음'}")
                     with col2:
-                        st.write(f"**Followers:** {ig_account.followers_count:,}" if ig_account.followers_count else "N/A")
-                        st.write(f"**Posts:** {ig_account.media_count:,}" if ig_account.media_count else "N/A")
+                        st.write(f"**팔로워:** {ig_account.followers_count:,}" if ig_account.followers_count else "없음")
+                        st.write(f"**게시물:** {ig_account.media_count:,}" if ig_account.media_count else "없음")
 
-                    st.info("Go to the **Dashboard** to view your insights!")
+                    st.info("**대시보드**에서 인사이트를 확인하세요!")
 
                     # Clear oauth state after successful login
                     st.session_state.oauth_state = None
@@ -81,33 +81,33 @@ if "code" in params and "state" in params:
                     st.error(result["error"])
 
             except Exception as e:
-                st.error(f"Login failed: {str(e)}")
+                st.error(f"로그인 실패: {str(e)}")
 
         # Clear query params
         st.query_params.clear()
 
 elif "error" in params:
     error = params.get("error")
-    error_desc = params.get("error_description", "Unknown error")
-    st.error(f"Login failed: {error_desc}")
+    error_desc = params.get("error_description", "알 수 없는 오류")
+    st.error(f"로그인 실패: {error_desc}")
     st.query_params.clear()
 
 else:
     # Show login instructions
     st.markdown("""
-    ### Connect Your Instagram Business Account
+    ### 인스타그램 비즈니스 계정 연결
 
-    To use this app, you need:
-    1. An **Instagram Business** or **Creator** account
-    2. A **Facebook Page** connected to your Instagram account
+    이 앱을 사용하려면 다음이 필요합니다:
+    1. **인스타그램 비즈니스** 또는 **크리에이터** 계정
+    2. 인스타그램 계정에 연결된 **Facebook 페이지**
 
-    Click the button below to log in with Facebook and authorize access to your Instagram insights.
+    아래 버튼을 클릭하여 Facebook으로 로그인하고 인스타그램 인사이트 접근을 허용하세요.
     """)
 
     # Check config
     missing = config.validate()
     if missing:
-        st.error(f"⚠️ App not configured. Missing: {', '.join(missing)}")
+        st.error(f"⚠️ 앱이 설정되지 않았습니다. 누락: {', '.join(missing)}")
         st.stop()
 
     # Login button
@@ -118,12 +118,12 @@ else:
         st.session_state.oauth_state = generate_state()
 
     oauth_url = get_oauth_url(state=st.session_state.oauth_state)
-    st.link_button("🔗 Connect Instagram via Facebook", oauth_url, type="primary", use_container_width=True)
+    st.link_button("🔗 Facebook으로 인스타그램 연결", oauth_url, type="primary", use_container_width=True)
 
     st.markdown("---")
 
     # Privacy note
     st.caption("""
-    **Privacy Note:** This app only accesses your Instagram Business insights and basic account information.
-    We do not access your personal Facebook data, messages, or post content.
+    **개인정보 안내:** 이 앱은 인스타그램 비즈니스 인사이트와 기본 계정 정보만 접근합니다.
+    개인 Facebook 데이터, 메시지, 게시물 내용에는 접근하지 않습니다.
     """)

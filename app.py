@@ -52,37 +52,37 @@ if config.SUPABASE_URL:
 
 
 # Main page content
-st.title("📊 Instagram Insights Dashboard")
+st.title("📊 인스타그램 인사이트 대시보드")
 
 # Check configuration
 missing = config.validate()
 if missing:
-    st.error(f"⚠️ Missing configuration: {', '.join(missing)}")
-    st.info("Please configure the required environment variables.")
+    st.error(f"⚠️ 설정 누락: {', '.join(missing)}")
+    st.info("필수 환경 변수를 설정해주세요.")
     st.stop()
 
 # Show login status
 if st.session_state.user_id:
-    st.success(f"✅ Logged in as @{st.session_state.instagram_username}")
-    st.info("Navigate to **Dashboard** to view your insights.")
+    st.success(f"✅ @{st.session_state.instagram_username} 로그인됨")
+    st.info("**대시보드**에서 인사이트를 확인하세요.")
 else:
-    st.warning("Please log in with your Instagram Business account to get started.")
-    st.info("Go to **Login** page in the sidebar to connect your account.")
+    st.warning("시작하려면 인스타그램 비즈니스 계정으로 로그인해주세요.")
+    st.info("사이드바의 **로그인** 페이지에서 계정을 연결하세요.")
 
 # Quick stats section
 st.markdown("---")
-st.subheader("Quick Guide")
+st.subheader("사용 가이드")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("### 1️⃣ Login")
-    st.write("Connect your Instagram Business account via Facebook OAuth.")
+    st.markdown("### 1️⃣ 로그인")
+    st.write("Facebook OAuth를 통해 인스타그램 비즈니스 계정을 연결하세요.")
 
 with col2:
-    st.markdown("### 2️⃣ Dashboard")
-    st.write("View your engagement metrics, reach, and follower trends.")
+    st.markdown("### 2️⃣ 대시보드")
+    st.write("참여도, 도달, 팔로워 추이를 확인하세요.")
 
 with col3:
-    st.markdown("### 3️⃣ Automatic Collection")
-    st.write("Insights are collected automatically every 6 hours.")
+    st.markdown("### 3️⃣ 자동 수집")
+    st.write("인사이트는 6시간마다 자동으로 수집됩니다.")
