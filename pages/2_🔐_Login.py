@@ -3,7 +3,7 @@
 import streamlit as st
 
 from src.database import init_db, create_or_update_user, save_token
-from src.oauth import get_oauth_url, validate_state, complete_oauth_flow
+from src.oauth import get_oauth_url, validate_state, complete_oauth_flow, generate_state
 from src.config import config
 
 st.set_page_config(page_title="Login", page_icon="🔐", layout="centered")
@@ -18,8 +18,9 @@ if "code" in params and "state" in params:
     code = params.get("code")
     state = params.get("state")
 
-    # Validate state
-    if not validate_state(state):
+    # Validate state (check session_state first, then fallback)
+    stored_state = st.session_state.get("oauth_state")
+    if state != stored_state and not validate_state(state):
         st.error("Invalid state parameter. Please try logging in again.")
         st.query_params.clear()
     else:
@@ -69,6 +70,9 @@ if "code" in params and "state" in params:
 
                     st.info("Go to the **Dashboard** to view your insights!")
 
+                    # Clear oauth state after successful login
+                    st.session_state.oauth_state = None
+
                 else:
                     st.error(result["error"])
 
@@ -105,9 +109,12 @@ else:
     # Login button
     st.markdown("---")
 
-    if st.button("🔗 Connect Instagram via Facebook", type="primary", use_container_width=True):
-        oauth_url = get_oauth_url()
-        st.markdown(f'<meta http-equiv="refresh" content="0;url={oauth_url}">', unsafe_allow_html=True)
+    # Generate OAuth URL with persistent state in session
+    if "oauth_state" not in st.session_state or st.session_state.oauth_state is None:
+        st.session_state.oauth_state = generate_state()
+
+    oauth_url = get_oauth_url(state=st.session_state.oauth_state)
+    st.link_button("🔗 Connect Instagram via Facebook", oauth_url, type="primary", use_container_width=True)
 
     st.markdown("---")
 
