@@ -46,14 +46,14 @@ router.get('/callback', async (req, res) => {
     const { igAccountId, username } = await oauth.getInstagramBusinessAccount(pageId, pageToken);
 
     // Create or update user
-    let user = getUser(igAccountId);
+    let user = await getUser(igAccountId);
     if (!user) {
-      user = createUser(igAccountId, username, pageId);
+      user = await createUser(igAccountId, username, pageId);
     }
 
     // Save tokens
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
-    saveToken(user.id, longToken, pageToken, expiresAt);
+    await saveToken(user.id, longToken, pageToken, expiresAt);
 
     res.redirect(config.frontendSuccessUrl);
   } catch (err) {

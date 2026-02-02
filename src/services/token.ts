@@ -1,21 +1,22 @@
 import { config } from '../config';
 import * as oauth from './oauth';
 import { db, getToken, saveToken, invalidateToken } from '../db/connection';
-import type { Token } from '../types';
+import type { Token } from '../db/connection';
 
 // Get all tokens expiring within specified days
-export function getExpiringTokens(daysThreshold: number = 10): Token[] {
+export async function getExpiringTokens(daysThreshold: number = 10): Promise<Token[]> {
   const thresholdDate = new Date();
   thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
 
-  const stmt = db.prepare(`
-    SELECT * FROM tokens
-    WHERE is_valid = 1
-    AND user_token_expires_at < ?
-    ORDER BY user_token_expires_at ASC
-  `);
+  const result = await db.execute({
+    sql: `SELECT * FROM tokens
+          WHERE is_valid = 1
+          AND user_token_expires_at < ?
+          ORDER BY user_token_expires_at ASC`,
+    args: [thresholdDate.toISOString()],
+  });
 
-  return stmt.all(thresholdDate.toISOString()) as Token[];
+  return result.rows as unknown as Token[];
 }
 
 // Refresh a single user's token
@@ -31,7 +32,7 @@ export async function refreshUserToken(token: Token): Promise<boolean> {
     const newExpiresAt = new Date(Date.now() + expiresIn * 1000);
 
     // Save new tokens
-    saveToken(token.user_id, newUserToken, newPageToken, newExpiresAt);
+    await saveToken(token.user_id, newUserToken, newPageToken, newExpiresAt);
 
     console.log(`Token refreshed for user ${token.user_id}, expires: ${newExpiresAt.toISOString()}`);
     return true;
@@ -40,7 +41,7 @@ export async function refreshUserToken(token: Token): Promise<boolean> {
 
     // Check if token is invalid (auth error)
     if (error.response?.data?.error?.code === 190) {
-      invalidateToken(token.id, 'Token expired or revoked by user');
+      await invalidateToken(token.id, 'Token expired or revoked by user');
     }
 
     return false;
@@ -49,7 +50,7 @@ export async function refreshUserToken(token: Token): Promise<boolean> {
 
 // Refresh all expiring tokens with delay between requests
 export async function refreshAllExpiringTokens(): Promise<{ refreshed: number; failed: number }> {
-  const expiringTokens = getExpiringTokens(10);
+  const expiringTokens = await getExpiringTokens(10);
   let refreshed = 0;
   let failed = 0;
 

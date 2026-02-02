@@ -1,23 +1,29 @@
-import Database from 'better-sqlite3';
-import { readFileSync, existsSync, mkdirSync } from 'fs';
-import { dirname, join } from 'path';
+import { createClient, Client } from '@libsql/client';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { config } from '../config';
 
-// Ensure data directory exists
-const dataDir = dirname(config.databasePath);
-if (!existsSync(dataDir)) {
-  mkdirSync(dataDir, { recursive: true });
-}
-
-// Initialize database connection
-const db = new Database(config.databasePath);
-db.pragma('journal_mode = WAL'); // Better concurrent performance
-db.pragma('foreign_keys = ON');  // Enforce foreign key constraints
+// Initialize database client
+export const db: Client = createClient({
+  url: config.databaseUrl,
+  authToken: config.databaseAuthToken,
+});
 
 // Initialize schema on first run
-const schemaPath = join(__dirname, 'schema.sql');
-const schema = readFileSync(schemaPath, 'utf-8');
-db.exec(schema);
+export async function initializeDatabase(): Promise<void> {
+  const schemaPath = join(__dirname, 'schema.sql');
+  const schema = readFileSync(schemaPath, 'utf-8');
+
+  // Split schema into individual statements and execute each
+  const statements = schema
+    .split(';')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  for (const statement of statements) {
+    await db.execute(statement);
+  }
+}
 
 // ============================================================
 // USER OPERATIONS
@@ -32,35 +38,38 @@ export interface User {
   updated_at: string;
 }
 
-export function getUser(instagramAccountId: string): User | undefined {
-  const stmt = db.prepare('SELECT * FROM users WHERE instagram_account_id = ?');
-  return stmt.get(instagramAccountId) as User | undefined;
+export async function getUser(instagramAccountId: string): Promise<User | undefined> {
+  const result = await db.execute({
+    sql: 'SELECT * FROM users WHERE instagram_account_id = ?',
+    args: [instagramAccountId],
+  });
+  return result.rows[0] as unknown as User | undefined;
 }
 
-export function createUser(
+export async function createUser(
   instagramAccountId: string,
   instagramUsername: string | null,
   facebookPageId: string | null
-): User {
-  const stmt = db.prepare(`
-    INSERT INTO users (instagram_account_id, instagram_username, facebook_page_id)
-    VALUES (?, ?, ?)
-  `);
-  const result = stmt.run(instagramAccountId, instagramUsername, facebookPageId);
-  return getUser(instagramAccountId)!;
+): Promise<User> {
+  await db.execute({
+    sql: `INSERT INTO users (instagram_account_id, instagram_username, facebook_page_id)
+          VALUES (?, ?, ?)`,
+    args: [instagramAccountId, instagramUsername, facebookPageId],
+  });
+  return (await getUser(instagramAccountId))!;
 }
 
-export function updateUser(
+export async function updateUser(
   instagramAccountId: string,
   instagramUsername: string | null,
   facebookPageId: string | null
-): void {
-  const stmt = db.prepare(`
-    UPDATE users
-    SET instagram_username = ?, facebook_page_id = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE instagram_account_id = ?
-  `);
-  stmt.run(instagramUsername, facebookPageId, instagramAccountId);
+): Promise<void> {
+  await db.execute({
+    sql: `UPDATE users
+          SET instagram_username = ?, facebook_page_id = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE instagram_account_id = ?`,
+    args: [instagramUsername, facebookPageId, instagramAccountId],
+  });
 }
 
 // ============================================================
@@ -79,32 +88,28 @@ export interface Token {
   updated_at: string;
 }
 
-export function getToken(userId: number): Token | undefined {
-  const stmt = db.prepare(`
-    SELECT * FROM tokens
-    WHERE user_id = ? AND is_valid = 1
-    ORDER BY created_at DESC
-    LIMIT 1
-  `);
-  return stmt.get(userId) as Token | undefined;
+export async function getToken(userId: number): Promise<Token | undefined> {
+  const result = await db.execute({
+    sql: `SELECT * FROM tokens
+          WHERE user_id = ? AND is_valid = 1
+          ORDER BY created_at DESC
+          LIMIT 1`,
+    args: [userId],
+  });
+  return result.rows[0] as unknown as Token | undefined;
 }
 
-export function saveToken(
+export async function saveToken(
   userId: number,
   userAccessToken: string,
   pageAccessToken: string,
   expiresAt: Date
-): Token {
-  const stmt = db.prepare(`
-    INSERT INTO tokens (user_id, user_access_token, page_access_token, user_token_expires_at)
-    VALUES (?, ?, ?, ?)
-  `);
-  const result = stmt.run(
-    userId,
-    userAccessToken,
-    pageAccessToken,
-    expiresAt.toISOString()
-  );
+): Promise<Token> {
+  const result = await db.execute({
+    sql: `INSERT INTO tokens (user_id, user_access_token, page_access_token, user_token_expires_at)
+          VALUES (?, ?, ?, ?)`,
+    args: [userId, userAccessToken, pageAccessToken, expiresAt.toISOString()],
+  });
   return {
     id: Number(result.lastInsertRowid),
     user_id: userId,
@@ -118,27 +123,27 @@ export function saveToken(
   };
 }
 
-export function updateToken(
+export async function updateToken(
   tokenId: number,
   userAccessToken: string,
   pageAccessToken: string,
   expiresAt: Date
-): void {
-  const stmt = db.prepare(`
-    UPDATE tokens
-    SET user_access_token = ?, page_access_token = ?, user_token_expires_at = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
-  stmt.run(userAccessToken, pageAccessToken, expiresAt.toISOString(), tokenId);
+): Promise<void> {
+  await db.execute({
+    sql: `UPDATE tokens
+          SET user_access_token = ?, page_access_token = ?, user_token_expires_at = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+    args: [userAccessToken, pageAccessToken, expiresAt.toISOString(), tokenId],
+  });
 }
 
-export function invalidateToken(tokenId: number, reason: string): void {
-  const stmt = db.prepare(`
-    UPDATE tokens
-    SET is_valid = 0, invalid_reason = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
-  stmt.run(reason, tokenId);
+export async function invalidateToken(tokenId: number, reason: string): Promise<void> {
+  await db.execute({
+    sql: `UPDATE tokens
+          SET is_valid = 0, invalid_reason = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+    args: [reason, tokenId],
+  });
 }
 
 // ============================================================
@@ -155,21 +160,21 @@ export interface Insight {
   created_at: string;
 }
 
-export function saveInsight(
+export async function saveInsight(
   userId: number,
   metricName: string,
   metricValue: number | null,
   period: string | null,
   collectedAt: Date
-): void {
-  const stmt = db.prepare(`
-    INSERT INTO insights (user_id, metric_name, metric_value, period, collected_at)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  stmt.run(userId, metricName, metricValue, period, collectedAt.toISOString());
+): Promise<void> {
+  await db.execute({
+    sql: `INSERT INTO insights (user_id, metric_name, metric_value, period, collected_at)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [userId, metricName, metricValue, period, collectedAt.toISOString()],
+  });
 }
 
-export function saveInsightsBatch(
+export async function saveInsightsBatch(
   userId: number,
   insights: Array<{
     metricName: string;
@@ -177,25 +182,14 @@ export function saveInsightsBatch(
     period: string | null;
   }>,
   collectedAt: Date
-): void {
-  const insert = db.prepare(`
-    INSERT INTO insights (user_id, metric_name, metric_value, period, collected_at)
-    VALUES (?, ?, ?, ?, ?)
-  `);
+): Promise<void> {
+  const statements = insights.map(row => ({
+    sql: `INSERT INTO insights (user_id, metric_name, metric_value, period, collected_at)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [userId, row.metricName, row.metricValue, row.period, collectedAt.toISOString()],
+  }));
 
-  const transaction = db.transaction((rows: typeof insights) => {
-    for (const row of rows) {
-      insert.run(
-        userId,
-        row.metricName,
-        row.metricValue,
-        row.period,
-        collectedAt.toISOString()
-      );
-    }
-  });
-
-  transaction(insights);
+  await db.batch(statements);
 }
 
 // ============================================================
@@ -211,44 +205,34 @@ export interface AudienceData {
   created_at: string;
 }
 
-export function saveAudienceData(
+export async function saveAudienceData(
   userId: number,
   metricName: string,
   metricValue: object,
   collectedAt: Date
-): void {
-  const stmt = db.prepare(`
-    INSERT INTO audience_data (user_id, metric_name, metric_value, collected_at)
-    VALUES (?, ?, ?, ?)
-  `);
-  stmt.run(userId, metricName, JSON.stringify(metricValue), collectedAt.toISOString());
+): Promise<void> {
+  await db.execute({
+    sql: `INSERT INTO audience_data (user_id, metric_name, metric_value, collected_at)
+          VALUES (?, ?, ?, ?)`,
+    args: [userId, metricName, JSON.stringify(metricValue), collectedAt.toISOString()],
+  });
 }
 
-export function saveAudienceDataBatch(
+export async function saveAudienceDataBatch(
   userId: number,
   audienceData: Array<{
     metricName: string;
     metricValue: object;
   }>,
   collectedAt: Date
-): void {
-  const insert = db.prepare(`
-    INSERT INTO audience_data (user_id, metric_name, metric_value, collected_at)
-    VALUES (?, ?, ?, ?)
-  `);
+): Promise<void> {
+  const statements = audienceData.map(row => ({
+    sql: `INSERT INTO audience_data (user_id, metric_name, metric_value, collected_at)
+          VALUES (?, ?, ?, ?)`,
+    args: [userId, row.metricName, JSON.stringify(row.metricValue), collectedAt.toISOString()],
+  }));
 
-  const transaction = db.transaction((rows: typeof audienceData) => {
-    for (const row of rows) {
-      insert.run(
-        userId,
-        row.metricName,
-        JSON.stringify(row.metricValue),
-        collectedAt.toISOString()
-      );
-    }
-  });
-
-  transaction(audienceData);
+  await db.batch(statements);
 }
 
 // ============================================================
@@ -265,19 +249,16 @@ export interface CollectionLog {
   created_at: string;
 }
 
-export function logCollection(
+export async function logCollection(
   userId: number,
   collectionType: string,
   status: string,
   requestsMade: number,
   errorMessage: string | null = null
-): void {
-  const stmt = db.prepare(`
-    INSERT INTO collection_log (user_id, collection_type, status, error_message, requests_made)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  stmt.run(userId, collectionType, status, errorMessage, requestsMade);
+): Promise<void> {
+  await db.execute({
+    sql: `INSERT INTO collection_log (user_id, collection_type, status, error_message, requests_made)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [userId, collectionType, status, errorMessage, requestsMade],
+  });
 }
-
-// Export database instance for advanced queries
-export { db };
