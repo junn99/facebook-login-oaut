@@ -22,8 +22,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-app.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
-});
+// Only listen when not in serverless environment
+if (process.env.VERCEL !== '1') {
+  app.listen(config.port, () => {
+    console.log(`Server running on port ${config.port}`);
+  });
+}
 
 export default app;
