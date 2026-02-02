@@ -47,7 +47,7 @@ def start_background_scheduler():
 
 
 # Start scheduler (only in production)
-if not config.DATABASE_URL.startswith("file:"):
+if config.SUPABASE_URL:
     start_background_scheduler()
 
 
