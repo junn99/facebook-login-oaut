@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>urlinsta - Instagram Insights</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      padding: 3rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      text-align: center;
+      max-width: 400px;
+    }
+    h1 { color: #333; margin-bottom: 0.5rem; }
+    p { color: #666; margin-bottom: 2rem; }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+    .status { margin-top: 1.5rem; padding: 1rem; border-radius: 0.5rem; }
+    .status.success { background: #d4edda; color: #155724; }
+    .status.error { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>urlinsta</h1>
+    <p>Connect your Instagram Business account to track insights</p>
+    <a href="/api/auth/login" class="btn">Connect Instagram</a>
+    <div id="status"></div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const statusEl = document.getElementById('status');
+    if (params.get('connected') === 'true') {
+      statusEl.className = 'status success';
+      statusEl.textContent = '✓ Account connected successfully!';
+    } else if (params.get('error') === 'true') {
+      statusEl.className = 'status error';
+      statusEl.textContent = '✗ Connection failed. Please try again.';
+    }
+  </script>
+</body>
+</html>
