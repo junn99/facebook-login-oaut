@@ -49,7 +49,7 @@ def get_oauth_url(state: Optional[str] = None) -> str:
         "client_id": config.FB_APP_ID,
         "redirect_uri": config.OAUTH_REDIRECT_URI,
         "state": state,
-        "scope": "instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement,business_management",
+        "scope": "email,public_profile",
         "response_type": "code",
     }
     return f"https://www.facebook.com/{config.GRAPH_API_VERSION}/dialog/oauth?{urlencode(params)}"

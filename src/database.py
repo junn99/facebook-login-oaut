@@ -12,6 +12,27 @@ from .models import User, Token, Insight, AudienceData, CollectionLog
 _client: Optional[Client] = None
 
 
+def _parse_datetime(value) -> Optional[datetime]:
+    """Parse datetime from string or return as-is if already datetime."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        # Handle ISO format with or without timezone
+        try:
+            # Try with timezone
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+        try:
+            # Try without timezone
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    return None
+
+
 def get_client() -> Client:
     """Get or create Supabase client."""
     global _client
@@ -114,8 +135,8 @@ def get_user_token(user_id: int, token_type: str) -> Optional[Token]:
             user_id=row["user_id"],
             token_type=row["token_type"],
             access_token=row["access_token"],
-            expires_at=row.get("expires_at"),
-            created_at=row.get("created_at")
+            expires_at=_parse_datetime(row.get("expires_at")),
+            created_at=_parse_datetime(row.get("created_at"))
         )
     return None
 
@@ -142,7 +163,7 @@ def get_expiring_tokens(days: int = 7) -> list[tuple[User, Token]]:
                 user_id=r["user_id"],
                 token_type=r["token_type"],
                 access_token=r["access_token"],
-                expires_at=r.get("expires_at")
+                expires_at=_parse_datetime(r.get("expires_at"))
             )
         )
         for r in result.data
