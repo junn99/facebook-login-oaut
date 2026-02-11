@@ -11,6 +11,7 @@ from src.database import (
 )
 from src.oauth import refresh_long_lived_token
 from src.database import save_token
+from src.permission_badge import show_permission_badge
 
 st.set_page_config(page_title="Settings", page_icon="⚙️", layout="wide")
 init_db()
@@ -29,6 +30,7 @@ st.subheader("📱 연결된 계정")
 
 for user in users:
     with st.expander(f"@{user.instagram_username}", expanded=True):
+        show_permission_badge("instagram_basic")
         col1, col2 = st.columns(2)
 
         with col1:
