@@ -15,6 +15,7 @@ from src.database import (
     get_user_token,
 )
 from src.insights_collector import collect_insights_for_user, collect_audience_for_user
+from src.permission_badge import show_permission_badge
 
 st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
 init_db()
@@ -72,8 +73,35 @@ insights = get_insights(selected_user.id, start_date=start_date)
 latest = get_latest_insights(selected_user.id)
 audience = get_latest_audience_data(selected_user.id)
 
+# Auto-collect if no data exists (first login)
+if not insights and not latest:
+    token = get_user_token(selected_user.id, "page")
+    if token:
+        with st.spinner("첫 로그인 데이터를 수집하고 있습니다..."):
+            result = collect_insights_for_user(
+                selected_user.id, selected_user.instagram_id, token.access_token
+            )
+            if result["success"] and result["insights_count"] > 0:
+                st.success(f"✅ {result['insights_count']}개 인사이트 수집 완료!")
+            elif result["success"]:
+                st.warning("인사이트 데이터가 아직 없습니다. 비즈니스 계정 활동 후 다시 시도하세요.")
+            else:
+                st.warning(f"인사이트 수집 실패: {result['error']}")
+
+            audience_result = collect_audience_for_user(
+                selected_user.id, selected_user.instagram_id, token.access_token
+            )
+            if audience_result["success"]:
+                st.success("✅ 오디언스 데이터 수집 완료!")
+
+        # Re-fetch data after collection
+        insights = get_insights(selected_user.id, start_date=start_date)
+        latest = get_latest_insights(selected_user.id)
+        audience = get_latest_audience_data(selected_user.id)
+
 # Summary metrics
 st.subheader("📈 주요 지표")
+show_permission_badge("instagram_manage_insights")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -97,6 +125,7 @@ st.markdown("---")
 # Trends chart
 if insights:
     st.subheader("📊 시간별 추이")
+    show_permission_badge("instagram_manage_insights")
 
     # Convert to DataFrame
     df = pd.DataFrame([
@@ -137,6 +166,8 @@ st.markdown("---")
 
 # Audience demographics
 st.subheader("👥 오디언스 인구통계")
+show_permission_badge("instagram_manage_insights")
+show_permission_badge("pages_read_engagement")
 
 if audience:
     col1, col2 = st.columns(2)
@@ -176,3 +207,16 @@ if audience:
             break
 else:
     st.info("아직 오디언스 데이터가 없습니다. '데이터 새로고침' 버튼을 클릭하여 수집하세요.")
+
+# Permission usage summary (for Meta App Review)
+st.markdown("---")
+st.subheader("🔑 Permission Usage Summary")
+st.caption("This table shows how each requested permission is used in this application.")
+
+permission_data = [
+    {"Permission": "instagram_basic", "Used In": "Profile Info, Account Setup", "API Endpoint": "GET /{ig-user-id}?fields=id,username,..."},
+    {"Permission": "instagram_manage_insights", "Used In": "Dashboard Metrics, Trends, Live Insights", "API Endpoint": "GET /{ig-user-id}/insights"},
+    {"Permission": "pages_show_list", "Used In": "Login (find linked Instagram account)", "API Endpoint": "GET /me/accounts"},
+    {"Permission": "pages_read_engagement", "Used In": "Audience Demographics", "API Endpoint": "GET /{ig-user-id}/insights (audience metrics)"},
+]
+st.dataframe(pd.DataFrame(permission_data), use_container_width=True, hide_index=True)
