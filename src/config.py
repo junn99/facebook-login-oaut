@@ -18,7 +18,7 @@ class Config:
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
 
     # Facebook Graph API
-    GRAPH_API_VERSION: str = "v21.0"
+    GRAPH_API_VERSION: str = "v22.0"
     GRAPH_API_BASE_URL: str = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
     # Rate limiting
