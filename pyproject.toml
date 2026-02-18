@@ -20,7 +20,7 @@ collect-insights = "jobs.collect_insights:run_collection"
 refresh-tokens = "jobs.refresh_tokens:run_token_refresh"
 
 [tool.poetry]
-package-mode = false
+package-mode = true
 
 [build-system]
 requires = ["poetry-core"]
