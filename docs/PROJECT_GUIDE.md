@@ -210,7 +210,7 @@ CREATE TABLE collection_log (
 #### 4.3 플레이스홀더 교체
 
 아래 두 파일에서 `[CONTACT_EMAIL]`을 실제 이메일로 변경:
-- `pages/4_🔒_Privacy.py` (2곳)
+- `pages/4_🔒_Privacy.py` (3곳)
 - `pages/5_🗑️_Data_Deletion.py` (2곳)
 
 ```bash

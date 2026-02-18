@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from src.database import (
     init_db,
-    get_all_users,
+    get_user_by_id,
     get_insights,
     get_latest_insights,
     get_latest_audience_data,
@@ -22,24 +22,26 @@ init_db()
 
 st.title("📊 인스타그램 인사이트 대시보드")
 
-# Get all users
-users = get_all_users()
-
-if not users:
-    st.warning("연결된 계정이 없습니다. 로그인 페이지에서 인스타그램 비즈니스 계정을 연결해주세요.")
+user_id = st.session_state.get("user_id")
+if not user_id:
+    st.warning(
+        "로그인이 필요합니다. 로그인 페이지에서 인스타그램 계정을 먼저 연결해주세요."
+    )
     st.stop()
 
-# User selection
-user_options = {f"@{u.instagram_username}": u for u in users}
-selected_username = st.sidebar.selectbox("계정 선택", list(user_options.keys()))
-selected_user = user_options[selected_username]
+selected_user = get_user_by_id(user_id)
+if not selected_user:
+    st.error("로그인된 사용자를 찾을 수 없습니다. 다시 로그인해주세요.")
+    st.stop()
+if selected_user.id is None:
+    st.error("사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.")
+    st.stop()
+selected_user_id = selected_user.id
 
 # Date range selection
 st.sidebar.markdown("---")
 date_range = st.sidebar.selectbox(
-    "기간",
-    ["최근 7일", "최근 30일", "최근 90일"],
-    index=0
+    "기간", ["최근 7일", "최근 30일", "최근 90일"], index=0
 )
 
 days_map = {"최근 7일": 7, "최근 30일": 30, "최근 90일": 90}
@@ -49,11 +51,11 @@ start_date = datetime.utcnow() - timedelta(days=days)
 # Manual refresh button
 st.sidebar.markdown("---")
 if st.sidebar.button("🔄 데이터 새로고침"):
-    token = get_user_token(selected_user.id, "page")
+    token = get_user_token(selected_user_id, "page")
     if token:
         with st.spinner("인사이트 수집 중..."):
             result = collect_insights_for_user(
-                selected_user.id, selected_user.instagram_id, token.access_token
+                selected_user_id, selected_user.instagram_id, token.access_token
             )
             if result["success"]:
                 st.sidebar.success(f"{result['insights_count']}개 지표 수집 완료!")
@@ -61,7 +63,7 @@ if st.sidebar.button("🔄 데이터 새로고침"):
                 st.sidebar.error(result["error"])
 
             audience_result = collect_audience_for_user(
-                selected_user.id, selected_user.instagram_id, token.access_token
+                selected_user_id, selected_user.instagram_id, token.access_token
             )
             if audience_result["success"]:
                 st.sidebar.success("오디언스 데이터 업데이트 완료!")
@@ -69,35 +71,37 @@ if st.sidebar.button("🔄 데이터 새로고침"):
         st.sidebar.error("유효한 토큰이 없습니다. 다시 로그인해주세요.")
 
 # Get data
-insights = get_insights(selected_user.id, start_date=start_date)
-latest = get_latest_insights(selected_user.id)
-audience = get_latest_audience_data(selected_user.id)
+insights = get_insights(selected_user_id, start_date=start_date)
+latest = get_latest_insights(selected_user_id)
+audience = get_latest_audience_data(selected_user_id)
 
 # Auto-collect if no data exists (first login)
 if not insights and not latest:
-    token = get_user_token(selected_user.id, "page")
+    token = get_user_token(selected_user_id, "page")
     if token:
         with st.spinner("첫 로그인 데이터를 수집하고 있습니다..."):
             result = collect_insights_for_user(
-                selected_user.id, selected_user.instagram_id, token.access_token
+                selected_user_id, selected_user.instagram_id, token.access_token
             )
             if result["success"] and result["insights_count"] > 0:
                 st.success(f"✅ {result['insights_count']}개 인사이트 수집 완료!")
             elif result["success"]:
-                st.warning("인사이트 데이터가 아직 없습니다. 비즈니스 계정 활동 후 다시 시도하세요.")
+                st.warning(
+                    "인사이트 데이터가 아직 없습니다. 비즈니스 계정 활동 후 다시 시도하세요."
+                )
             else:
                 st.warning(f"인사이트 수집 실패: {result['error']}")
 
             audience_result = collect_audience_for_user(
-                selected_user.id, selected_user.instagram_id, token.access_token
+                selected_user_id, selected_user.instagram_id, token.access_token
             )
             if audience_result["success"]:
                 st.success("✅ 오디언스 데이터 수집 완료!")
 
         # Re-fetch data after collection
-        insights = get_insights(selected_user.id, start_date=start_date)
-        latest = get_latest_insights(selected_user.id)
-        audience = get_latest_audience_data(selected_user.id)
+        insights = get_insights(selected_user_id, start_date=start_date)
+        latest = get_latest_insights(selected_user_id)
+        audience = get_latest_audience_data(selected_user_id)
 
 # Summary metrics
 st.subheader("📈 주요 지표")
@@ -128,14 +132,12 @@ if insights:
     show_permission_badge("instagram_manage_insights")
 
     # Convert to DataFrame
-    df = pd.DataFrame([
-        {
-            "date": i.collected_at,
-            "metric": i.metric_name,
-            "value": i.metric_value
-        }
-        for i in insights
-    ])
+    df = pd.DataFrame(
+        [
+            {"date": i.collected_at, "metric": i.metric_name, "value": i.metric_value}
+            for i in insights
+        ]
+    )
 
     if not df.empty:
         # Metric selection
@@ -143,7 +145,9 @@ if insights:
         selected_metrics = st.multiselect(
             "표시할 지표 선택",
             available_metrics,
-            default=available_metrics[:3] if len(available_metrics) > 3 else available_metrics
+            default=available_metrics[:3]
+            if len(available_metrics) > 3
+            else available_metrics,
         )
 
         if selected_metrics:
@@ -155,12 +159,14 @@ if insights:
                 y="value",
                 color="metric",
                 title="시간별 지표 추이",
-                labels={"date": "날짜", "value": "값", "metric": "지표"}
+                labels={"date": "날짜", "value": "값", "metric": "지표"},
             )
             fig.update_layout(hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("아직 인사이트 데이터가 없습니다. '데이터 새로고침' 버튼을 클릭하여 수집하세요.")
+    st.info(
+        "아직 인사이트 데이터가 없습니다. '데이터 새로고침' 버튼을 클릭하여 수집하세요."
+    )
 
 st.markdown("---")
 
@@ -206,17 +212,37 @@ if audience:
                 st.plotly_chart(fig, use_container_width=True)
             break
 else:
-    st.info("아직 오디언스 데이터가 없습니다. '데이터 새로고침' 버튼을 클릭하여 수집하세요.")
+    st.info(
+        "아직 오디언스 데이터가 없습니다. '데이터 새로고침' 버튼을 클릭하여 수집하세요."
+    )
 
 # Permission usage summary (for Meta App Review)
 st.markdown("---")
 st.subheader("🔑 Permission Usage Summary")
-st.caption("This table shows how each requested permission is used in this application.")
+st.caption(
+    "This table shows how each requested permission is used in this application."
+)
 
 permission_data = [
-    {"Permission": "instagram_basic", "Used In": "Profile Info, Account Setup", "API Endpoint": "GET /{ig-user-id}?fields=id,username,..."},
-    {"Permission": "instagram_manage_insights", "Used In": "Dashboard Metrics, Trends, Live Insights", "API Endpoint": "GET /{ig-user-id}/insights"},
-    {"Permission": "pages_show_list", "Used In": "Login (find linked Instagram account)", "API Endpoint": "GET /me/accounts"},
-    {"Permission": "pages_read_engagement", "Used In": "Audience Demographics", "API Endpoint": "GET /{ig-user-id}/insights (audience metrics)"},
+    {
+        "Permission": "instagram_basic",
+        "Used In": "Profile Info, Account Setup",
+        "API Endpoint": "GET /{ig-user-id}?fields=id,username,...",
+    },
+    {
+        "Permission": "instagram_manage_insights",
+        "Used In": "Dashboard Metrics, Trends, Live Insights",
+        "API Endpoint": "GET /{ig-user-id}/insights",
+    },
+    {
+        "Permission": "pages_show_list",
+        "Used In": "Login (find linked Instagram account)",
+        "API Endpoint": "GET /me/accounts",
+    },
+    {
+        "Permission": "pages_read_engagement",
+        "Used In": "Audience Demographics",
+        "API Endpoint": "GET /{ig-user-id}/insights (audience metrics)",
+    },
 ]
 st.dataframe(pd.DataFrame(permission_data), use_container_width=True, hide_index=True)

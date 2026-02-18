@@ -12,6 +12,7 @@ class Config:
     FB_APP_ID: str = os.getenv("FB_APP_ID", "")
     FB_APP_SECRET: str = os.getenv("FB_APP_SECRET", "")
     OAUTH_REDIRECT_URI: str = os.getenv("OAUTH_REDIRECT_URI", "")
+    CONTACT_EMAIL: str = os.getenv("CONTACT_EMAIL", "")
 
     # Supabase
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
@@ -28,7 +29,14 @@ class Config:
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of missing keys."""
-        required = ["FB_APP_ID", "FB_APP_SECRET", "OAUTH_REDIRECT_URI", "SUPABASE_URL", "SUPABASE_KEY"]
+        required = [
+            "FB_APP_ID",
+            "FB_APP_SECRET",
+            "OAUTH_REDIRECT_URI",
+            "CONTACT_EMAIL",
+            "SUPABASE_URL",
+            "SUPABASE_KEY",
+        ]
         missing = [key for key in required if not getattr(cls, key)]
         return missing
 

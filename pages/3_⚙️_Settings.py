@@ -5,9 +5,8 @@ from datetime import datetime
 
 from src.database import (
     init_db,
-    get_all_users,
+    get_user_by_id,
     get_user_token,
-    get_expiring_tokens,
 )
 from src.oauth import refresh_long_lived_token
 from src.database import save_token
@@ -18,79 +17,90 @@ init_db()
 
 st.title("⚙️ 설정")
 
-# Get all users
-users = get_all_users()
-
-if not users:
-    st.warning("연결된 계정이 없습니다. 먼저 로그인 페이지로 이동하세요.")
+user_id = st.session_state.get("user_id")
+if not user_id:
+    st.warning(
+        "로그인이 필요합니다. 로그인 페이지에서 인스타그램 계정을 먼저 연결해주세요."
+    )
     st.stop()
+
+selected_user = get_user_by_id(user_id)
+if not selected_user:
+    st.error("로그인된 사용자를 찾을 수 없습니다. 다시 로그인해주세요.")
+    st.stop()
+if selected_user.id is None:
+    st.error("사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.")
+    st.stop()
+selected_user_id = selected_user.id
 
 # Account management
 st.subheader("📱 연결된 계정")
 
-for user in users:
-    with st.expander(f"@{user.instagram_username}", expanded=True):
-        show_permission_badge("instagram_basic")
-        col1, col2 = st.columns(2)
+with st.expander(f"@{selected_user.instagram_username}", expanded=True):
+    show_permission_badge("instagram_basic")
+    col1, col2 = st.columns(2)
 
-        with col1:
-            st.write(f"**Instagram ID:** {user.instagram_id}")
-            st.write(f"**Facebook 페이지 ID:** {user.facebook_page_id}")
-            st.write(f"**연결일:** {user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A'}")
+    with col1:
+        st.write(f"**Instagram ID:** {selected_user.instagram_id}")
+        st.write(f"**Facebook 페이지 ID:** {selected_user.facebook_page_id}")
+        st.write(
+            f"**연결일:** {selected_user.created_at.strftime('%Y-%m-%d') if selected_user.created_at else 'N/A'}"
+        )
 
-        with col2:
-            # Token status
-            user_token = get_user_token(user.id, "user")
-            page_token = get_user_token(user.id, "page")
+    with col2:
+        user_token = get_user_token(selected_user_id, "user")
+        page_token = get_user_token(selected_user_id, "page")
 
-            if user_token and user_token.expires_at:
-                days_left = (user_token.expires_at - datetime.utcnow()).days
-                if days_left > 14:
-                    st.success(f"✅ 토큰 유효: {days_left}일 남음")
-                elif days_left > 0:
-                    st.warning(f"⚠️ 토큰 만료 예정: {days_left}일 남음")
-                else:
-                    st.error("❌ 토큰 만료됨")
+        if user_token and user_token.expires_at:
+            days_left = (user_token.expires_at - datetime.utcnow()).days
+            if days_left > 14:
+                st.success(f"✅ 토큰 유효: {days_left}일 남음")
+            elif days_left > 0:
+                st.warning(f"⚠️ 토큰 만료 예정: {days_left}일 남음")
             else:
-                st.info("토큰 상태 알 수 없음")
+                st.error("❌ 토큰 만료됨")
+        else:
+            st.info("토큰 상태 알 수 없음")
 
-            if page_token:
-                st.success("✅ 페이지 토큰 활성")
-            else:
-                st.error("❌ 페이지 토큰 없음")
+        if page_token:
+            st.success("✅ 페이지 토큰 활성")
+        else:
+            st.error("❌ 페이지 토큰 없음")
 
-        # Refresh token button
-        if st.button(f"🔄 토큰 갱신", key=f"refresh_{user.id}"):
-            if user_token:
-                try:
-                    with st.spinner("토큰 갱신 중..."):
-                        new_token = refresh_long_lived_token(user_token.access_token)
-                        save_token(
-                            user_id=user.id,
-                            token_type="user",
-                            access_token=new_token["access_token"],
-                            expires_at=new_token["expires_at"],
-                        )
-                    st.success(f"토큰 갱신 완료! 새 만료일: {new_token['expires_at'].strftime('%Y-%m-%d')}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"갱신 실패: {str(e)}")
-            else:
-                st.error("갱신할 토큰이 없습니다. 다시 로그인해주세요.")
+    if st.button("🔄 토큰 갱신", key=f"refresh_{selected_user_id}"):
+        if user_token:
+            try:
+                with st.spinner("토큰 갱신 중..."):
+                    new_token = refresh_long_lived_token(user_token.access_token)
+                    save_token(
+                        user_id=selected_user_id,
+                        token_type="user",
+                        access_token=new_token["access_token"],
+                        expires_at=new_token["expires_at"],
+                    )
+                st.success(
+                    f"토큰 갱신 완료! 새 만료일: {new_token['expires_at'].strftime('%Y-%m-%d')}"
+                )
+                st.rerun()
+            except Exception as e:
+                st.error(f"갱신 실패: {str(e)}")
+        else:
+            st.error("갱신할 토큰이 없습니다. 다시 로그인해주세요.")
 
 st.markdown("---")
 
 # Token expiration warnings
 st.subheader("⏰ 토큰 상태")
 
-expiring = get_expiring_tokens(days=14)
-if expiring:
-    st.warning(f"⚠️ 14일 이내 만료 예정 토큰 {len(expiring)}개:")
-    for user, token in expiring:
-        days_left = (token.expires_at - datetime.utcnow()).days if token.expires_at else 0
-        st.write(f"  • @{user.instagram_username}: {days_left}일 남음")
+user_token = get_user_token(selected_user_id, "user")
+if user_token and user_token.expires_at:
+    days_left = (user_token.expires_at - datetime.utcnow()).days
+    if days_left <= 14:
+        st.warning(f"⚠️ 토큰 만료 예정: {days_left}일 남음")
+    else:
+        st.success("✅ 토큰이 유효합니다")
 else:
-    st.success("✅ 모든 토큰이 유효합니다")
+    st.warning("⚠️ 사용자 토큰 상태를 확인할 수 없습니다")
 
 st.markdown("---")
 

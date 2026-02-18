@@ -1,9 +1,9 @@
 """Privacy Policy page."""
+
 import streamlit as st
-from src.database import init_db
+from src.config import config
 
 st.set_page_config(page_title="Privacy Policy", page_icon="🔒", layout="centered")
-init_db()
 
 st.title("🔒 개인정보 처리방침 / Privacy Policy")
 st.caption("최종 업데이트: 2026-02-11 / Last Updated: February 11, 2026")
@@ -38,8 +38,8 @@ This app collects the following data when you connect your Instagram Business ac
 - 팔로워 연령 및 성별 분포 / Follower Age and Gender Distribution
 
 **인증 토큰 / Authentication Tokens:**
-- Facebook 사용자 액세스 토큰 (암호화 저장) / Facebook User Access Token (stored encrypted)
-- Facebook 페이지 액세스 토큰 (암호화 저장) / Facebook Page Access Token (stored encrypted)
+- Facebook 사용자 액세스 토큰 (비공개 데이터베이스에 저장) / Facebook User Access Token (stored in a private database)
+- Facebook 페이지 액세스 토큰 (비공개 데이터베이스에 저장) / Facebook Page Access Token (stored in a private database)
 """)
 
 st.markdown("---")
@@ -90,7 +90,7 @@ st.markdown("---")
 
 # Section 5: Data Deletion
 st.subheader("5. 데이터 삭제 / Data Deletion")
-st.markdown("""
+st.markdown(f"""
 데이터 삭제를 요청할 수 있습니다:
 
 You can request deletion of your data:
@@ -99,8 +99,8 @@ You can request deletion of your data:
    - 자세한 방법은 [데이터 삭제 안내 페이지](/Data_Deletion)를 참고하세요
    - See the [Data Deletion Instructions page](/Data_Deletion) for detailed steps
 2. **이메일로 삭제 요청** / Request deletion via email
-   - [CONTACT_EMAIL] 로 삭제 요청을 보내주세요
-   - Send a deletion request to [CONTACT_EMAIL]
+   - {config.CONTACT_EMAIL} 로 삭제 요청을 보내주세요
+   - Send a deletion request to {config.CONTACT_EMAIL}
 
 삭제 요청은 **30일 이내**에 처리됩니다.
 
@@ -122,13 +122,15 @@ st.markdown("---")
 
 # Section 7: Contact
 st.subheader("7. 연락처 / Contact Information")
-st.markdown("""
+st.markdown(f"""
 개인정보 처리방침에 관한 문의:
 
 For questions about this Privacy Policy:
 
-- **이메일 / Email:** [CONTACT_EMAIL]
+ - **이메일 / Email:** {config.CONTACT_EMAIL}
 """)
 
 st.markdown("---")
-st.caption("본 개인정보 처리방침은 사전 고지 후 변경될 수 있습니다. / This privacy policy may be updated with prior notice.")
+st.caption(
+    "본 개인정보 처리방침은 사전 고지 후 변경될 수 있습니다. / This privacy policy may be updated with prior notice."
+)

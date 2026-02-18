@@ -3,7 +3,7 @@
 import streamlit as st
 
 from src.database import init_db, create_or_update_user, save_token
-from src.oauth import get_oauth_url, validate_state, complete_oauth_flow, generate_state
+from src.oauth import get_oauth_url, validate_state, complete_oauth_flow
 from src.permission_badge import show_permission_badge
 from src.config import config
 
@@ -15,22 +15,23 @@ st.title("🔐 인스타그램 로그인")
 # Check for OAuth callback
 params = st.query_params
 
-if "code" in params and "state" in params:
-    code = params.get("code")
-    state = params.get("state")
+if "code" in params:
+    code = params.get("code") or ""
+    state = params.get("state") or ""
 
-    # Validate state (check both session_state and in-memory storage)
-    stored_state = st.session_state.get("oauth_state")
-    state_valid = (state == stored_state) or validate_state(state)
+    if not code or not validate_state(state):
+        st.warning(
+            "보안 검증(state) 실패로 로그인을 완료하지 못했습니다. 다시 시도해 주세요."
+        )
+        st.link_button(
+            "🔗 Facebook으로 다시 로그인",
+            get_oauth_url(),
+            type="primary",
+            use_container_width=True,
+        )
+        st.query_params.clear()
+        st.stop()
 
-    # Log state validation result (don't show warning to user)
-    if not state_valid:
-        import logging
-        logging.info("OAuth state validation skipped (Streamlit Cloud session reset)")
-
-    # Always execute OAuth flow regardless of state validation result.
-    # On Streamlit Cloud, session may reset after redirect, so state can be lost.
-    # Facebook has already validated the user by providing the code.
     with st.spinner("로그인 처리 중..."):
         try:
             result = complete_oauth_flow(code)
@@ -44,6 +45,8 @@ if "code" in params and "state" in params:
                     instagram_username=ig_account.username,
                     facebook_page_id=result["page_id"],
                 )
+                if user.id is None:
+                    raise ValueError("사용자 ID 생성에 실패했습니다.")
 
                 # Save tokens
                 save_token(
@@ -74,13 +77,18 @@ if "code" in params and "state" in params:
                     st.write(f"**사용자명:** @{ig_account.username}")
                     st.write(f"**이름:** {ig_account.name or '없음'}")
                 with col2:
-                    st.write(f"**팔로워:** {ig_account.followers_count:,}" if ig_account.followers_count else "없음")
-                    st.write(f"**게시물:** {ig_account.media_count:,}" if ig_account.media_count else "없음")
+                    st.write(
+                        f"**팔로워:** {ig_account.followers_count:,}"
+                        if ig_account.followers_count
+                        else "없음"
+                    )
+                    st.write(
+                        f"**게시물:** {ig_account.media_count:,}"
+                        if ig_account.media_count
+                        else "없음"
+                    )
 
                 st.info("**대시보드**에서 인사이트를 확인하세요!")
-
-                # Clear oauth state after successful login
-                st.session_state.oauth_state = None
 
             else:
                 st.error(result["error"])
@@ -107,9 +115,7 @@ elif "error" in params:
 
         아래 버튼을 클릭하여 다시 시도하세요.
         """)
-        if "oauth_state" not in st.session_state or st.session_state.oauth_state is None:
-            st.session_state.oauth_state = generate_state()
-        retry_url = get_oauth_url(state=st.session_state.oauth_state)
+        retry_url = get_oauth_url()
         st.link_button("🔗 다시 시도", retry_url, type="primary")
     else:
         st.error(f"로그인 실패: {error_desc}")
@@ -138,12 +144,13 @@ else:
     # Login button
     st.markdown("---")
 
-    # Generate OAuth URL with persistent state in session
-    if "oauth_state" not in st.session_state or st.session_state.oauth_state is None:
-        st.session_state.oauth_state = generate_state()
-
-    oauth_url = get_oauth_url(state=st.session_state.oauth_state)
-    st.link_button("🔗 Facebook으로 인스타그램 연결", oauth_url, type="primary", use_container_width=True)
+    oauth_url = get_oauth_url()
+    st.link_button(
+        "🔗 Facebook으로 인스타그램 연결",
+        oauth_url,
+        type="primary",
+        use_container_width=True,
+    )
 
     st.markdown("---")
 

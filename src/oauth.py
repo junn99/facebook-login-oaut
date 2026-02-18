@@ -1,6 +1,11 @@
 """Facebook OAuth flow for Instagram Business API."""
 
+import base64
+import hashlib
+import hmac
+import json
 import secrets
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 from urllib.parse import urlencode
@@ -11,33 +16,63 @@ from .config import config
 from .models import InstagramAccount
 
 
-# In-memory state storage (for CSRF protection)
-_oauth_states: dict[str, datetime] = {}
+_STATE_TTL_SECONDS = 600
+_STATE_FUTURE_SKEW_SECONDS = 60
 
 
-def _cleanup_old_states():
-    """Remove states older than 10 minutes."""
-    now = datetime.utcnow()
-    expired = [k for k, v in _oauth_states.items() if (now - v).total_seconds() > 600]
-    for k in expired:
-        del _oauth_states[k]
+def _b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(data: str) -> bytes:
+    padding = "=" * (-len(data) % 4)
+    return base64.urlsafe_b64decode(data + padding)
+
+
+def _sign_state_payload(payload_bytes: bytes) -> bytes:
+    secret = config.FB_APP_SECRET.encode("utf-8")
+    return hmac.new(secret, payload_bytes, hashlib.sha256).digest()
 
 
 def generate_state() -> str:
-    """Generate and store a CSRF state token."""
-    _cleanup_old_states()
-    state = secrets.token_urlsafe(32)
-    _oauth_states[state] = datetime.utcnow()
-    return state
+    """Generate a signed stateless CSRF state token."""
+    payload = {
+        "iat": int(time.time()),
+        "nonce": secrets.token_urlsafe(16),
+    }
+    payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    signature = _sign_state_payload(payload_bytes)
+    return f"{_b64url_encode(payload_bytes)}.{_b64url_encode(signature)}"
 
 
 def validate_state(state: str) -> bool:
-    """Validate and consume a state token."""
-    _cleanup_old_states()
-    if state in _oauth_states:
-        del _oauth_states[state]
+    """Validate a signed stateless CSRF state token."""
+    try:
+        if not state or "." not in state:
+            return False
+
+        payload_part, signature_part = state.split(".", 1)
+        payload_bytes = _b64url_decode(payload_part)
+        received_signature = _b64url_decode(signature_part)
+        expected_signature = _sign_state_payload(payload_bytes)
+
+        if not hmac.compare_digest(received_signature, expected_signature):
+            return False
+
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        iat = payload.get("iat")
+        if not isinstance(iat, int):
+            return False
+
+        now = int(time.time())
+        if now - iat > _STATE_TTL_SECONDS:
+            return False
+        if iat - now > _STATE_FUTURE_SKEW_SECONDS:
+            return False
+
         return True
-    return False
+    except Exception:
+        return False
 
 
 def get_oauth_url(state: Optional[str] = None) -> str:
@@ -124,7 +159,9 @@ def get_user_pages(user_token: str) -> list[dict]:
     return response.json().get("data", [])
 
 
-def get_instagram_business_account(page_token: str, page_id: str) -> Optional[InstagramAccount]:
+def get_instagram_business_account(
+    page_token: str, page_id: str
+) -> Optional[InstagramAccount]:
     """Get Instagram Business Account linked to a Facebook Page."""
     url = f"{config.GRAPH_API_BASE_URL}/{page_id}"
     params = {

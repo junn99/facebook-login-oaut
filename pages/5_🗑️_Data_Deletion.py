@@ -1,9 +1,9 @@
 """Data Deletion Instructions page."""
+
 import streamlit as st
-from src.database import init_db
+from src.config import config
 
 st.set_page_config(page_title="Data Deletion", page_icon="🗑️", layout="centered")
-init_db()
 
 st.title("🗑️ 데이터 삭제 안내 / Data Deletion Instructions")
 
@@ -43,12 +43,12 @@ st.markdown("---")
 
 # Section 2: Request Data Deletion
 st.subheader("2. 데이터 삭제 요청 / Request Data Deletion")
-st.markdown("""
+st.markdown(f"""
 앱을 제거한 후, 저장된 데이터의 완전한 삭제를 요청할 수 있습니다:
 
 After removing the app, you can request complete deletion of your stored data:
 
-- **이메일 / Email:** [CONTACT_EMAIL]
+- **이메일 / Email:** {config.CONTACT_EMAIL}
 - **제목 / Subject:** "데이터 삭제 요청 / Data Deletion Request"
 - **본문에 포함할 내용 / Include in body:**
   - 인스타그램 사용자명 / Your Instagram username
@@ -97,12 +97,12 @@ st.markdown("---")
 
 # Section 5: Contact
 st.subheader("5. 문의 / Contact")
-st.markdown("""
+st.markdown(f"""
 데이터 삭제에 관한 질문이 있으시면:
 
 For questions about data deletion:
 
-- **이메일 / Email:** [CONTACT_EMAIL]
+- **이메일 / Email:** {config.CONTACT_EMAIL}
 - **개인정보 처리방침:** [개인정보 처리방침 페이지](/Privacy)를 참고하세요
   / **Privacy Policy:** See our [Privacy Policy page](/Privacy)
 """)

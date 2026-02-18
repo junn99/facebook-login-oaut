@@ -42,3 +42,6 @@ htmlcov/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# openclaw
+.sisyphus/

@@ -1,8 +1,9 @@
 """Live Insights - Real-time API demonstration for Meta App Review."""
+
 import streamlit as st
 import pandas as pd
 
-from src.database import init_db, get_all_users, get_user_token
+from src.database import init_db, get_user_by_id, get_user_token
 from src.instagram_api import InstagramAPI, InstagramAPIError
 from src.oauth import get_user_pages
 from src.permission_badge import show_permission_badge
@@ -11,19 +12,27 @@ st.set_page_config(page_title="Live Insights", page_icon="🔍", layout="wide")
 init_db()
 
 st.title("🔍 실시간 인사이트 / Live Insights")
-st.info("This page demonstrates live Instagram Graph API calls using the granted permissions.")
+st.info(
+    "This page demonstrates live Instagram Graph API calls using the granted permissions."
+)
 
-# User selection
-users = get_all_users()
-if not users:
-    st.warning("연결된 계정이 없습니다. 로그인 페이지에서 인스타그램 비즈니스 계정을 연결해주세요.")
+user_id = st.session_state.get("user_id")
+if not user_id:
+    st.warning(
+        "로그인이 필요합니다. 로그인 페이지에서 인스타그램 계정을 먼저 연결해주세요."
+    )
     st.stop()
 
-user_options = {f"@{u.instagram_username}": u for u in users}
-selected_username = st.sidebar.selectbox("계정 선택", list(user_options.keys()))
-selected_user = user_options[selected_username]
+selected_user = get_user_by_id(user_id)
+if not selected_user:
+    st.error("로그인된 사용자를 찾을 수 없습니다. 다시 로그인해주세요.")
+    st.stop()
+if selected_user.id is None:
+    st.error("사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.")
+    st.stop()
+selected_user_id = selected_user.id
 
-page_token = get_user_token(selected_user.id, "page")
+page_token = get_user_token(selected_user_id, "page")
 if not page_token:
     st.error("유효한 페이지 토큰이 없습니다. 다시 로그인해주세요.")
     st.stop()
@@ -47,7 +56,9 @@ try:
         st.metric("팔로잉 / Following", f"{info.get('follows_count', 0):,}")
         st.metric("게시물 / Posts", f"{info.get('media_count', 0):,}")
     with st.expander("API Details"):
-        st.code(f"GET /{selected_user.instagram_id}?fields=id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography")
+        st.code(
+            f"GET /{selected_user.instagram_id}?fields=id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography"
+        )
 except InstagramAPIError as e:
     st.error(f"API Error: {e}")
 
@@ -64,7 +75,9 @@ try:
     else:
         st.info("현재 사용 가능한 인사이트 데이터가 없습니다.")
     with st.expander("API Details"):
-        st.code(f"GET /{selected_user.instagram_id}/insights?metric=impressions,reach,profile_views,follower_count&period=day&metric_type=total_value")
+        st.code(
+            f"GET /{selected_user.instagram_id}/insights?metric=impressions,reach,profile_views,follower_count&period=day&metric_type=total_value"
+        )
 except InstagramAPIError as e:
     st.error(f"API Error: {e}")
 
@@ -86,7 +99,9 @@ try:
     else:
         st.info("현재 사용 가능한 오디언스 데이터가 없습니다.")
     with st.expander("API Details"):
-        st.code(f"GET /{selected_user.instagram_id}/insights?metric=follower_demographics&period=lifetime&metric_type=total_value")
+        st.code(
+            f"GET /{selected_user.instagram_id}/insights?metric=follower_demographics&period=lifetime&metric_type=total_value"
+        )
 except InstagramAPIError as e:
     st.error(f"API Error: {e}")
 
@@ -95,23 +110,31 @@ st.markdown("---")
 # Section 4: Connected Facebook Pages (pages_show_list)
 st.subheader("4. 연결된 Facebook 페이지 / Connected Facebook Pages")
 show_permission_badge("pages_show_list")
-user_token = get_user_token(selected_user.id, "user")
+user_token = get_user_token(selected_user_id, "user")
 if user_token:
     try:
         pages = get_user_pages(user_token.access_token)
         if pages:
             page_data = []
             for page in pages:
-                page_data.append({
-                    "Page Name": page.get("name", "N/A"),
-                    "Page ID": page.get("id", "N/A"),
-                    "Has Instagram": "✅" if "instagram_business_account" in page else "❌",
-                })
-            st.dataframe(pd.DataFrame(page_data), use_container_width=True, hide_index=True)
+                page_data.append(
+                    {
+                        "Page Name": page.get("name", "N/A"),
+                        "Page ID": page.get("id", "N/A"),
+                        "Has Instagram": "✅"
+                        if "instagram_business_account" in page
+                        else "❌",
+                    }
+                )
+            st.dataframe(
+                pd.DataFrame(page_data), use_container_width=True, hide_index=True
+            )
         else:
             st.info("연결된 Facebook 페이지가 없습니다.")
         with st.expander("API Details"):
-            st.code("GET /me/accounts?fields=id,name,access_token,instagram_business_account")
+            st.code(
+                "GET /me/accounts?fields=id,name,access_token,instagram_business_account"
+            )
     except Exception as e:
         st.error(f"API Error: {e}")
 else:
