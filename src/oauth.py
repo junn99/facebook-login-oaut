@@ -154,20 +154,14 @@ def get_user_pages(user_token: str) -> list[dict]:
     }
 
     response = requests.get(url, params=params)
+    raw = response.json()
     
-    # 디버그: 원본 응답 출력
-    print(f"get_user_pages raw response: {response.json()}")
+    # 실패 return에 raw 응답 포함시키기 위해 전역 저장
+    import builtins
+    builtins._debug_pages_raw = raw
     
     response.raise_for_status()
-    data = response.json()
-    
-    # 페이지가 없으면 fields 없이 재시도
-    if not data.get("data"):
-        params2 = {"access_token": user_token}
-        response2 = requests.get(url, params=params2)
-        print(f"get_user_pages retry response: {response2.json()}")
-    
-    return data.get("data", [])
+    return raw.get("data", [])
 
 def get_instagram_business_account(
     page_token: str, page_id: str
@@ -230,17 +224,11 @@ def complete_oauth_flow(code: str) -> dict:
                     "instagram_account": ig_account,
                 }
 
+    import builtins
     return {
-    "success": False,
-    "error": "No Instagram Business Account found.",
-    "debug_pages": [
-        {
-            "name": p.get("name"),
-            "has_ig": "instagram_business_account" in p,
-            "ig": p.get("instagram_business_account"),
-            "keys": list(p.keys())
-        } 
-        for p in pages
-    ],
-    "pages_count": len(pages),
-}
+        "success": False,
+        "error": "No Instagram Business Account found.",
+        "debug_pages": [...],
+        "pages_count": len(pages),
+        "raw_api_response": getattr(builtins, '_debug_pages_raw', 'N/A'),
+    }
