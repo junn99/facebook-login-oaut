@@ -202,6 +202,7 @@ def complete_oauth_flow(code: str) -> dict:
 
     # Step 4: Find page with Instagram Business Account
     for page in pages:
+        print(f"Page: {page.get('name')}, Keys: {list(page.keys())}, IG: {page.get('instagram_business_account')}")
         if "instagram_business_account" in page:
             page_id = page["id"]
             page_token = page["access_token"]
