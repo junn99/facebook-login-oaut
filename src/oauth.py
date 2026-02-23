@@ -221,7 +221,14 @@ def complete_oauth_flow(code: str) -> dict:
                 }
 
     return {
-    "success": False,
-    "error": "No Instagram Business Account found...",
-    "pages_debug": [{"name": p.get("name"), "has_ig": "instagram_business_account" in p} for p in pages],  # 추가
-}
+        "success": False,
+        "error": "No Instagram Business Account found.",
+        "debug_pages": [
+            {
+                "name": p.get("name"),
+                "has_ig": "instagram_business_account" in p,
+                "ig": p.get("instagram_business_account")
+            } 
+            for p in pages
+        ],
+    }
