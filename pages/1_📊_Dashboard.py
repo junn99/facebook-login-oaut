@@ -244,5 +244,10 @@ permission_data = [
         "Used In": "Audience Demographics",
         "API Endpoint": "GET /{ig-user-id}/insights (audience metrics)",
     },
+    {
+        "Permission": "business_management",
+        "Used In": "Login (Business Manager page discovery fallback)",
+        "API Endpoint": "GET /me/businesses, GET /{business-id}/owned_pages",
+    },
 ]
 st.dataframe(pd.DataFrame(permission_data), use_container_width=True, hide_index=True)

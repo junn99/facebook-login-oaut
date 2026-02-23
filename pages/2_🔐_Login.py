@@ -34,12 +34,7 @@ if "code" in params:
 
     with st.spinner("로그인 처리 중..."):
         try:
-            result = complete_oauth_flow(code)  # 먼저 실행
-
-            # 디버그
-            st.write("### 디버그 결과")
-            st.write(result)
-            # 디버그 끝
+            result = complete_oauth_flow(code)
 
             if result["success"]:
                 ig_account = result["instagram_account"]
@@ -74,6 +69,7 @@ if "code" in params:
                 st.success(f"✅ @{ig_account.username} 로그인 성공!")
                 show_permission_badge("instagram_basic")
                 show_permission_badge("pages_show_list")
+                show_permission_badge("business_management")
 
                 # Show account info
                 st.markdown("### 계정 정보")
@@ -117,6 +113,7 @@ elif "error" in params:
         - **instagram_manage_insights** - 인사이트 데이터
         - **pages_show_list** - Facebook 페이지 목록
         - **pages_read_engagement** - 페이지 참여 데이터
+        - **business_management** - Business Manager 하위 페이지 조회(필요 시)
 
         아래 버튼을 클릭하여 다시 시도하세요.
         """)
@@ -136,6 +133,7 @@ else:
     이 앱을 사용하려면 다음이 필요합니다:
     1. **인스타그램 비즈니스** 또는 **크리에이터** 계정
     2. 인스타그램 계정에 연결된 **Facebook 페이지**
+    3. 페이지가 Business Manager 하위에 있으면 추가 권한 동의가 필요할 수 있음
 
     아래 버튼을 클릭하여 Facebook으로 로그인하고 인스타그램 인사이트 접근을 허용하세요.
     """)

@@ -18,6 +18,10 @@ PERMISSIONS = {
         "label": "pages_read_engagement",
         "description": "Page engagement and audience data",
     },
+    "business_management": {
+        "label": "business_management",
+        "description": "Business Manager owned page discovery fallback",
+    },
 }
 
 

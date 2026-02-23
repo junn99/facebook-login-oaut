@@ -134,7 +134,7 @@ PY
 - 액션:
   1) `https://facebook-login-oaut.streamlit.app/Login` 접속
   2) 로그인 버튼 클릭 → Facebook OAuth로 이동
-  3) 권한 승인 화면에서 4개 권한이 표시되는지 확인 후 승인
+  3) 권한 승인 화면에서 5개 권한이 표시되는지 확인 후 승인
   4) `/Login`으로 돌아와 성공 메시지 확인
 - Pass:
   - 승인 후 `/Login`에서 로그인 성공 안내가 보임
@@ -147,9 +147,9 @@ PY
 
 3. 권한-기능 매핑 확인(심사 핵심)
 - 액션: 아래 라우트에서 권한 증빙 UI가 실제로 보이는지 확인
-  - `/Login`: `instagram_basic`, `pages_show_list`
+  - `/Login`: `instagram_basic`, `pages_show_list`, `business_management`
   - `/Dashboard`: `instagram_manage_insights`, `pages_read_engagement`
-  - `/Live_Insights`: 4개 권한 각각의 섹션(프로필/인사이트/오디언스/페이지 목록)
+  - `/Live_Insights`: 4개 권한 섹션(프로필/인사이트/오디언스/페이지 목록) + `/Login`의 BM fallback 동작 증빙
 - Pass: 각 섹션에서 권한 사용이 화면상 드러남(배지/섹션 제목/표 등)
 - Fail: 로그인은 되지만, 심사관이 “권한을 어디서 쓰는지” 확인하기 어려움
 
@@ -189,11 +189,12 @@ Pass/Fail 기준:
 - 끊김 없는 1개 영상(2~3분)을 목표로 하되, **권한별 증빙 포인트**를 빠짐없이 포함
 - 화면에 권한 배지/섹션 제목이 보이도록 촬영
 
-권한(4개):
+권한(5개):
 - `instagram_basic`
 - `instagram_manage_insights`
 - `pages_show_list`
 - `pages_read_engagement`
+- `business_management`
 
 ### 0:00 - 0:20 (앱 공개 URL + 목적 소개)
 1) 브라우저 주소창에 배포 URL을 보여줌(예: `https://facebook-login-oaut.streamlit.app`)
@@ -205,7 +206,7 @@ Pass 기준:
 ### 0:20 - 1:00 (/Login OAuth 흐름)
 1) `https://facebook-login-oaut.streamlit.app/Login` 이동
 2) 로그인 버튼 클릭 → Facebook OAuth로 이동
-3) 권한 승인 화면에서 4개 권한이 요청되는 것을 보여줌
+3) 권한 승인 화면에서 5개 권한이 요청되는 것을 보여줌
 4) 승인 후 `/Login`으로 돌아와 성공 메시지 + 계정 정보 표시를 보여줌
 
 Pass 기준:
@@ -279,10 +280,12 @@ Pass 기준:
 
 3) No Instagram Business Account found / Pages 탐색 실패
 - 증상: 로그인은 되지만 IG 비즈니스 계정 탐색 단계에서 실패
-- 원인: IG가 Facebook Page에 연결되지 않았거나, 계정 유형이 비즈니스/프로페셔널이 아님
+- 원인: IG가 Facebook Page에 연결되지 않았거나, 계정 유형이 비즈니스/프로페셔널이 아님, 또는 BM 권한 부족
 - 해결:
   - Instagram 설정에서 Facebook Page 연결
   - 테스트 계정을 “비즈니스 계정”으로 준비
+  - OAuth에서 `business_management` 동의 및 BM 내 페이지 권한 확인
+  - 일부 BM 구성에서는 `ads_management`/`ads_read`가 추가로 필요할 수 있음
 
 4) 데이터가 비어 보임
 - 증상: `/Dashboard`/`/Live_Insights`에서 데이터가 없다/표시가 약함
