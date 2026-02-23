@@ -147,7 +147,6 @@ def refresh_long_lived_token(token: str) -> dict:
 
 
 def get_user_pages(user_token: str) -> list[dict]:
-    """Get Facebook Pages the user manages."""
     url = f"{config.GRAPH_API_BASE_URL}/me/accounts"
     params = {
         "access_token": user_token,
@@ -155,9 +154,20 @@ def get_user_pages(user_token: str) -> list[dict]:
     }
 
     response = requests.get(url, params=params)
+    
+    # 디버그: 원본 응답 출력
+    print(f"get_user_pages raw response: {response.json()}")
+    
     response.raise_for_status()
-    return response.json().get("data", [])
-
+    data = response.json()
+    
+    # 페이지가 없으면 fields 없이 재시도
+    if not data.get("data"):
+        params2 = {"access_token": user_token}
+        response2 = requests.get(url, params=params2)
+        print(f"get_user_pages retry response: {response2.json()}")
+    
+    return data.get("data", [])
 
 def get_instagram_business_account(
     page_token: str, page_id: str
@@ -221,14 +231,16 @@ def complete_oauth_flow(code: str) -> dict:
                 }
 
     return {
-        "success": False,
-        "error": "No Instagram Business Account found.",
-        "debug_pages": [
-            {
-                "name": p.get("name"),
-                "has_ig": "instagram_business_account" in p,
-                "ig": p.get("instagram_business_account")
-            } 
-            for p in pages
-        ],
-    }
+    "success": False,
+    "error": "No Instagram Business Account found.",
+    "debug_pages": [
+        {
+            "name": p.get("name"),
+            "has_ig": "instagram_business_account" in p,
+            "ig": p.get("instagram_business_account"),
+            "keys": list(p.keys())
+        } 
+        for p in pages
+    ],
+    "pages_count": len(pages),
+}
