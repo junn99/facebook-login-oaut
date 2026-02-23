@@ -34,15 +34,11 @@ if "code" in params:
 
     with st.spinner("로그인 처리 중..."):
         try:
-            from src.oauth import exchange_code_for_token, get_long_lived_token, get_user_pages
-            short = exchange_code_for_token(code)
-            long = get_long_lived_token(short["access_token"])
-            pages = get_user_pages(long["access_token"])
-            st.write("### 디버그: 페이지 목록")
-            for p in pages:
-                st.write(f"- {p.get('name')}: {p.get('instagram_business_account')}")
+            # 디버그 추가
+            st.write("### 디버그 결과")
+            st.write(result)
             # 디버그 끝
-                
+                    
             result = complete_oauth_flow(code)
 
             if result["success"]:
