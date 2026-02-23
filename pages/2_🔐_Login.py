@@ -34,12 +34,12 @@ if "code" in params:
 
     with st.spinner("로그인 처리 중..."):
         try:
-            # 디버그 추가
+            result = complete_oauth_flow(code)  # 먼저 실행
+
+            # 디버그
             st.write("### 디버그 결과")
             st.write(result)
             # 디버그 끝
-                    
-            result = complete_oauth_flow(code)
 
             if result["success"]:
                 ig_account = result["instagram_account"]
