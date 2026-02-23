@@ -221,6 +221,7 @@ def complete_oauth_flow(code: str) -> dict:
                 }
 
     return {
-        "success": False,
-        "error": "No Instagram Business Account found. Please ensure your Instagram account is connected to a Facebook Page.",
-    }
+    "success": False,
+    "error": "No Instagram Business Account found...",
+    "pages_debug": [{"name": p.get("name"), "has_ig": "instagram_business_account" in p} for p in pages],  # 추가
+}
