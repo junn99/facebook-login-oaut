@@ -343,6 +343,15 @@ def complete_oauth_flow(code: str) -> dict:
         "success": False,
         "error": error_message,
         "pages_count": len(pages),
+        "debug_pages": [
+        {
+            "name": p.get("name"),
+            "id": p.get("id"),
+            "has_ig": "instagram_business_account" in p,
+            "ig_data": p.get("instagram_business_account"),
+        }
+        for p in pages
+        ],
         "diagnostics": {
             "me_accounts_count": debug_info.get("me_accounts_count", 0),
             "bm_fallback_used": debug_info.get("bm_fallback_used", False),
