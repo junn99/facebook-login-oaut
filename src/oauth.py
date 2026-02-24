@@ -204,7 +204,6 @@ def get_user_pages(
 
     debug["bm_fallback_used"] = True
 
-    # Fallback for Business Manager managed pages.
     businesses_url = f"{config.GRAPH_API_BASE_URL}/me/businesses"
     businesses_response = requests.get(
         businesses_url, params={"access_token": user_token}
@@ -229,6 +228,7 @@ def get_user_pages(
         if not isinstance(business_id, str) or not business_id:
             continue
 
+        # owned_pages 시도
         owned_pages_url = f"{config.GRAPH_API_BASE_URL}/{business_id}/owned_pages"
         owned_pages_response = requests.get(
             owned_pages_url,
@@ -240,20 +240,32 @@ def get_user_pages(
         owned_pages_raw = _safe_json(owned_pages_response)
         business_pages = owned_pages_raw.get("data", [])
         business_pages = business_pages if isinstance(business_pages, list) else []
+        print(f"[DEBUG] owned_pages status: {owned_pages_response.status_code}")
+        print(f"[DEBUG] owned_pages data: {owned_pages_raw}")
 
-        if owned_pages_response.status_code != 200:
+        # owned_pages 결과 없으면 client_pages 시도
+        if not business_pages:
+            client_pages_url = f"{config.GRAPH_API_BASE_URL}/{business_id}/client_pages"
+            client_pages_response = requests.get(
+                client_pages_url,
+                params={
+                    "access_token": user_token,
+                    "fields": "id,name,access_token,instagram_business_account",
+                },
+            )
+            client_pages_raw = _safe_json(client_pages_response)
+            business_pages = client_pages_raw.get("data", [])
+            business_pages = business_pages if isinstance(business_pages, list) else []
+            print(f"[DEBUG] client_pages status: {client_pages_response.status_code}")
+            print(f"[DEBUG] client_pages data: {client_pages_raw}")
+
+        if owned_pages_response.status_code != 200 and not business_pages:
             error_list = debug.setdefault("bm_owned_pages_errors", [])
             if isinstance(error_list, list):
                 error_list.append(
                     {
                         "business_id": business_id,
-                        "error": owned_pages_raw.get(
-                            "error",
-                            {
-                                "message": owned_pages_response.text
-                                or "Unknown /owned_pages error"
-                            },
-                        ),
+                        "error": owned_pages_raw.get("error"),
                     }
                 )
             continue
@@ -262,7 +274,7 @@ def get_user_pages(
 
     debug["bm_owned_pages_count"] = len(owned_pages)
     return _dedupe_pages(owned_pages)
-
+    
 def get_instagram_business_account(
     page_token: str, page_id: str
 ) -> Optional[InstagramAccount]:
@@ -290,7 +302,6 @@ def get_instagram_business_account(
     return None
 
 def get_page_token(user_token: str, page_id: str) -> Optional[str]:
-    """페이지 토큰을 직접 요청."""
     url = f"{config.GRAPH_API_BASE_URL}/{page_id}"
     params = {
         "access_token": user_token,
@@ -298,6 +309,8 @@ def get_page_token(user_token: str, page_id: str) -> Optional[str]:
     }
     response = requests.get(url, params=params)
     data = _safe_json(response)
+    print(f"[DEBUG] get_page_token status: {response.status_code}")
+    print(f"[DEBUG] get_page_token response: {data}")
     return data.get("access_token")
 
 
