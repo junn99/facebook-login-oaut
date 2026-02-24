@@ -351,6 +351,7 @@ def complete_oauth_flow(code: str) -> dict:
             "id": p.get("id"),
             "has_ig": "instagram_business_account" in p,
             "ig_data": p.get("instagram_business_account"),
+            "has_token": bool(p.get("access_token")),
         }
         for p in pages
         ],
