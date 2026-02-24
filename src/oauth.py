@@ -7,7 +7,7 @@ import json
 import secrets
 import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 import requests
@@ -84,7 +84,7 @@ def get_oauth_url(state: Optional[str] = None) -> str:
         "client_id": config.FB_APP_ID,
         "redirect_uri": config.OAUTH_REDIRECT_URI,
         "state": state,
-        "scope": "instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement",
+        "scope": "instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement,business_management",
         "response_type": "code",
     }
     return f"https://www.facebook.com/{config.GRAPH_API_VERSION}/dialog/oauth?{urlencode(params)}"
@@ -146,22 +146,122 @@ def refresh_long_lived_token(token: str) -> dict:
     return data
 
 
-def get_user_pages(user_token: str) -> list[dict]:
+def _safe_json(response: requests.Response) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _dedupe_pages(pages: list[dict]) -> list[dict]:
+    deduped: list[dict] = []
+    seen_page_ids: set[str] = set()
+
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        page_id = page.get("id")
+        if not isinstance(page_id, str) or not page_id:
+            deduped.append(page)
+            continue
+        if page_id in seen_page_ids:
+            continue
+        seen_page_ids.add(page_id)
+        deduped.append(page)
+
+    return deduped
+
+
+def get_user_pages(
+    user_token: str, debug_info: Optional[dict[str, Any]] = None
+) -> list[dict]:
     url = f"{config.GRAPH_API_BASE_URL}/me/accounts"
     params = {
         "access_token": user_token,
         "fields": "id,name,access_token,instagram_business_account",
     }
 
+    debug = debug_info if debug_info is not None else {}
+
     response = requests.get(url, params=params)
-    raw = response.json()
-    
-    # 실패 return에 raw 응답 포함시키기 위해 전역 저장
-    import builtins
-    builtins._debug_pages_raw = raw
-    
+    raw = _safe_json(response)
+    pages = raw.get("data", [])
+    pages = pages if isinstance(pages, list) else []
+
+    debug["me_accounts_status_code"] = response.status_code
+    debug["me_accounts_count"] = len(pages)
+    if response.status_code != 200:
+        debug["me_accounts_error"] = raw.get(
+            "error", {"message": response.text or "Unknown /me/accounts error"}
+        )
+
     response.raise_for_status()
-    return raw.get("data", [])
+
+    if pages:
+        debug["bm_fallback_used"] = False
+        return _dedupe_pages(pages)
+
+    debug["bm_fallback_used"] = True
+
+    # Fallback for Business Manager managed pages.
+    businesses_url = f"{config.GRAPH_API_BASE_URL}/me/businesses"
+    businesses_response = requests.get(
+        businesses_url, params={"access_token": user_token}
+    )
+    businesses_raw = _safe_json(businesses_response)
+    businesses = businesses_raw.get("data", [])
+    businesses = businesses if isinstance(businesses, list) else []
+
+    debug["bm_businesses_status_code"] = businesses_response.status_code
+    debug["bm_businesses_count"] = len(businesses)
+
+    if businesses_response.status_code != 200:
+        debug["bm_businesses_error"] = businesses_raw.get(
+            "error",
+            {"message": businesses_response.text or "Unknown /me/businesses error"},
+        )
+        return []
+
+    owned_pages: list[dict] = []
+    for business in businesses:
+        business_id = business.get("id")
+        if not isinstance(business_id, str) or not business_id:
+            continue
+
+        owned_pages_url = f"{config.GRAPH_API_BASE_URL}/{business_id}/owned_pages"
+        owned_pages_response = requests.get(
+            owned_pages_url,
+            params={
+                "access_token": user_token,
+                "fields": "id,name,access_token,instagram_business_account",
+            },
+        )
+        owned_pages_raw = _safe_json(owned_pages_response)
+        business_pages = owned_pages_raw.get("data", [])
+        business_pages = business_pages if isinstance(business_pages, list) else []
+
+        if owned_pages_response.status_code != 200:
+            error_list = debug.setdefault("bm_owned_pages_errors", [])
+            if isinstance(error_list, list):
+                error_list.append(
+                    {
+                        "business_id": business_id,
+                        "error": owned_pages_raw.get(
+                            "error",
+                            {
+                                "message": owned_pages_response.text
+                                or "Unknown /owned_pages error"
+                            },
+                        ),
+                    }
+                )
+            continue
+
+        owned_pages.extend(business_pages)
+
+    debug["bm_owned_pages_count"] = len(owned_pages)
+    return _dedupe_pages(owned_pages)
 
 def get_instagram_business_account(
     page_token: str, page_id: str
@@ -202,12 +302,12 @@ def complete_oauth_flow(code: str) -> dict:
     user_token_expires = long_token_data["expires_at"]
 
     # Step 3: Get user's Facebook Pages
-    pages = get_user_pages(user_token)
+    debug_info: dict[str, Any] = {}
+    pages = get_user_pages(user_token, debug_info=debug_info)
 
     # Step 4: Find page with Instagram Business Account
     for page in pages:
-        print(f"Page: {page.get('name')}, Keys: {list(page.keys())}, IG: {page.get('instagram_business_account')}")
-        if "instagram_business_account" in page:
+        if page.get("instagram_business_account"):
             page_id = page["id"]
             page_token = page["access_token"]
 
@@ -224,11 +324,29 @@ def complete_oauth_flow(code: str) -> dict:
                     "instagram_account": ig_account,
                 }
 
-    import builtins
+    error_message = (
+        "No Instagram Business Account found. Please ensure your Instagram "
+        "professional account is connected to a Facebook Page."
+    )
+    if debug_info.get("bm_fallback_used"):
+        error_message += (
+            " If this Page is managed via Business Manager, grant "
+            "`business_management` and confirm page access."
+        )
+    if debug_info.get("bm_businesses_error"):
+        error_message += (
+            " Some Business Manager setups may additionally require "
+            "`ads_management` or `ads_read`."
+        )
+
     return {
         "success": False,
-        "error": "No Instagram Business Account found.",
-        "debug_pages": [...],
+        "error": error_message,
         "pages_count": len(pages),
-        "raw_api_response": getattr(builtins, '_debug_pages_raw', 'N/A'),
+        "diagnostics": {
+            "me_accounts_count": debug_info.get("me_accounts_count", 0),
+            "bm_fallback_used": debug_info.get("bm_fallback_used", False),
+            "bm_businesses_count": debug_info.get("bm_businesses_count", 0),
+            "bm_businesses_error": debug_info.get("bm_businesses_error"),
+        },
     }

@@ -31,4 +31,5 @@ Use this as a reviewer-reproducible pre-submit check.
 - [ ] `instagram_manage_insights` -> `/Dashboard` metrics/charts and `/Live_Insights` business insights section.
 - [ ] `pages_show_list` -> `/Login` connected Page discovery flow and `/Live_Insights` pages list section.
 - [ ] `pages_read_engagement` -> `/Dashboard` audience demographics and `/Live_Insights` audience data section.
+- [ ] `business_management` -> `/Login` Business Manager fallback flow (`/me/businesses`, `/{business-id}/owned_pages`).
 - [ ] Keep one continuous 2-3 minute recording showing login, permission grant, each mapped section, then `/Privacy` and `/Data_Deletion`.
