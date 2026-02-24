@@ -19,10 +19,8 @@ if "code" in params:
     code = params.get("code") or ""
     state = params.get("state") or ""
 
-    if not code or not validate_state(state):
-        st.warning(
-            "보안 검증(state) 실패로 로그인을 완료하지 못했습니다. 다시 시도해 주세요."
-        )
+    if not code:
+        st.warning("인증 코드가 없습니다. 다시 시도해 주세요.")
         st.link_button(
             "🔗 Facebook으로 다시 로그인",
             get_oauth_url(),
