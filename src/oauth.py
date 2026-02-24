@@ -307,22 +307,24 @@ def complete_oauth_flow(code: str) -> dict:
 
     # Step 4: Find page with Instagram Business Account
     for page in pages:
-        if page.get("instagram_business_account"):
-            page_id = page["id"]
-            page_token = page["access_token"]
-
-            # Step 5: Get Instagram account details
-            ig_account = get_instagram_business_account(page_token, page_id)
-
-            if ig_account:
-                return {
-                    "success": True,
-                    "user_token": user_token,
-                    "user_token_expires": user_token_expires,
-                    "page_id": page_id,
-                    "page_token": page_token,
-                    "instagram_account": ig_account,
-                }
+        page_id = page["id"]
+        page_token = page.get("access_token")
+        
+        if not page_token:
+            continue
+        
+        # instagram_business_account가 없어도 직접 API로 조회
+        ig_account = get_instagram_business_account(page_token, page_id)
+        
+        if ig_account:
+            return {
+                "success": True,
+                "user_token": user_token,
+                "user_token_expires": user_token_expires,
+                "page_id": page_id,
+                "page_token": page_token,
+                "instagram_account": ig_account,
+            }
 
     error_message = (
         "No Instagram Business Account found. Please ensure your Instagram "
