@@ -289,6 +289,17 @@ def get_instagram_business_account(
         )
     return None
 
+def get_page_token(user_token: str, page_id: str) -> Optional[str]:
+    """페이지 토큰을 직접 요청."""
+    url = f"{config.GRAPH_API_BASE_URL}/{page_id}"
+    params = {
+        "access_token": user_token,
+        "fields": "access_token",
+    }
+    response = requests.get(url, params=params)
+    data = _safe_json(response)
+    return data.get("access_token")
+
 
 def complete_oauth_flow(code: str) -> dict:
     """Complete the full OAuth flow and return all necessary data."""
@@ -308,10 +319,15 @@ def complete_oauth_flow(code: str) -> dict:
     # Step 4: Find page with Instagram Business Account
     for page in pages:
         page_id = page["id"]
-        # 페이지 토큰 없으면 유저 토큰으로 대체
-        page_token = page.get("access_token") or user_token
+        page_token = page.get("access_token")
         
-        # instagram_business_account가 없어도 직접 API로 조회
+        # 페이지 토큰 없으면 직접 요청
+        if not page_token:
+            page_token = get_page_token(user_token, page_id)
+        
+        if not page_token:
+            continue
+        
         ig_account = get_instagram_business_account(page_token, page_id)
         
         if ig_account:
