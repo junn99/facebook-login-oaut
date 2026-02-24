@@ -93,6 +93,9 @@ if "code" in params:
 
             else:
                 st.error(result["error"])
+                # 임시 디버그 - 문제 파악 후 삭제
+                st.json(result.get("diagnostics", {}))
+                st.write(f"찾은 페이지 수: {result.get('pages_count', 0)}")
 
         except Exception as e:
             st.error(f"로그인 실패: {str(e)}")
