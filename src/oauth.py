@@ -308,10 +308,8 @@ def complete_oauth_flow(code: str) -> dict:
     # Step 4: Find page with Instagram Business Account
     for page in pages:
         page_id = page["id"]
-        page_token = page.get("access_token")
-        
-        if not page_token:
-            continue
+        # 페이지 토큰 없으면 유저 토큰으로 대체
+        page_token = page.get("access_token") or user_token
         
         # instagram_business_account가 없어도 직접 API로 조회
         ig_account = get_instagram_business_account(page_token, page_id)
